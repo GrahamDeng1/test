@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>哺乳期安全用药消消乐V7</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        safe: '#4ade80',      // 可用 - 绿色
+                        cautious: '#facc15',  // 慎用 - 黄色
+                        forbidden: '#f87171', // 禁用 - 红色
+                        primary: '#e63998',
+                        secondary: '#ffbad2',
+                        neutral: '#f9f5f7',   // 浅灰色背景
+                        tileBack: '#f0e6ea'   // 方块背面颜色
+                    },
+                    fontFamily: {
+                        sans: ['Microsoft YaHei', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .game-shadow {
+                box-shadow: 0 4px 15px rgba(230, 57, 152, 0.2);
+            }
+            .tile-hover {
+                transition: all 0.2s ease;
+            }
+            .tile-hover:hover {
+                transform: scale(1.05);
+                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+            }
+            .pulse-effect {
+                animation: pulse 1s infinite;
+            }
+            @keyframes pulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.05); }
+                100% { transform: scale(1); }
+            }
+            .disappear {
+                animation: disappear 0.5s forwards;
+            }
+            @keyframes disappear {
+                0% { opacity: 1; transform: scale(1); }
+                100% { opacity: 0; transform: scale(0); }
+            }
+            .flip {
+                animation: flip 0.3s forwards;
+            }
+            @keyframes flip {
+                0% { transform: rotateY(0deg); }
+                50% { transform: rotateY(90deg); }
+                100% { transform: rotateY(0deg); }
+            }
+        }
+    </style>
+</head>
+<body class="bg-neutral min-h-screen flex flex-col items-center justify-center p-4 font-sans">
+    <!-- 页面标题区域 -->
+    <div class="text-center mb-4 w-full max-w-lg">
+        <div class="flex justify-center items-center mb-2">
+            <img src="https://picsum.photos/50/50" alt="东莞市妇幼保健院logo" class="w-10 h-10 mr-2">
+            <p class="text-gray-600 text-sm">主办单位:东莞市妇幼保健院</p>
+        </div>
+        <h1 class="text-[clamp(1.8rem,5vw,2.5rem)] font-bold text-primary mb-2">哺乳期安全用药消消乐</h1>
+        <p class="text-gray-600">记住药品位置，匹配相同药品</p>
+    </div>
+
+    <!-- 游戏状态栏 -->
+    <div class="flex justify-between items-center w-full max-w-lg mb-4 bg-white rounded-lg p-3 game-shadow">
+        <div class="flex items-center">
+            <i class="fa fa-clock-o text-primary mr-2 text-xl"></i>
+            <span id="timer" class="font-bold text-lg">01:00</span>
+        </div>
+        <div class="flex items-center">
+            <i class="fa fa-star text-primary mr-2 text-xl"></i>
+            <span id="score" class="font-bold text-lg">0</span>
+        </div>
+        <button id="hintBtn" class="bg-secondary hover:bg-primary text-white px-3 py-1 rounded-full flex items-center transition-colors">
+            <i class="fa fa-lightbulb-o mr-1"></i> 提示
+            <span id="hintCount" class="ml-1 bg-primary rounded-full w-5 h-5 flex items-center justify-center text-xs">3</span>
+        </button>
+    </div>
+
+    <!-- 开始游戏按钮 -->
+    <div id="startOverlay" class="w-full max-w-lg mb-2 text-center">
+        <button id="startBtn" class="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-full transition-colors font-bold">
+            准备好后点击开始游戏
+        </button>
+        <p class="text-xs text-gray-500 mt-2">游戏开始后所有药品将翻转隐藏</p>
+    </div>
+
+    <!-- 游戏主区域 -->
+    <div class="relative w-full max-w-lg">
+        <!-- 游戏网格 4x5 -->
+        <div id="gameBoard" class="grid grid-cols-5 gap-2 bg-white p-4 rounded-xl game-shadow"></div>
+        
+        <!-- 游戏结果弹窗 -->
+        <div id="resultModal" class="hidden absolute inset-0 bg-black bg-opacity-50 rounded-xl flex items-center justify-center">
+            <div class="bg-white p-6 rounded-lg text-center w-3/4 max-w-sm">
+                <h2 id="resultTitle" class="text-2xl font-bold text-primary mb-3"></h2>
+                <p id="resultMessage" class="mb-4"></p>
+                <button id="restartBtn" class="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-full transition-colors">
+                    再来一次
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图例说明 -->
+    <div class="mt-6 bg-white p-4 rounded-lg game-shadow w-full max-w-lg">
+        <h3 class="text-primary font-bold mb-3 text-center">哺乳期用药安全分类</h3>
+        <div class="grid grid-cols-3 gap-2 text-center text-sm">
+            <div>
+                <div class="w-8 h-8 bg-safe rounded-full mx-auto mb-1 flex items-center justify-center">
+                    <i class="fa fa-check text-white"></i>
+                </div>
+                <p>可用</p>
+                <p class="text-xs text-gray-500">哺乳期可安全使用</p>
+            </div>
+            <div>
+                <div class="w-8 h-8 bg-cautious rounded-full mx-auto mb-1 flex items-center justify-center">
+                    <i class="fa fa-exclamation text-white"></i>
+                </div>
+                <p>慎用</p>
+                <p class="text-xs text-gray-500">需医生评估后使用</p>
+            </div>
+            <div>
+                <div class="w-8 h-8 bg-forbidden rounded-full mx-auto mb-1 flex items-center justify-center">
+                    <i class="fa fa-times text-white"></i>
+                </div>
+                <p>禁用</p>
+                <p class="text-xs text-gray-500">哺乳期禁止使用</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚信息 -->
+    <div class="mt-6 text-center text-gray-500 text-xs">
+        <p>© 2023 东莞市妇幼保健院 版权所有</p>
+        <p class="mt-1">本游戏仅作科普教育使用，不构成用药建议</p>
+    </div>
+
+    <script>
+        // 游戏配置
+        const config = {
+            gridSize: { rows: 4, cols: 5 },  // 4x5网格布局
+            timeLimit: 60,                   // 游戏时间60秒
+            hintCount: 3,                    // 3次提示机会
+            targetScore: 110                 // 完成游戏所需分数
+        };
+
+        // 游戏状态管理
+        let gameState = {
+            timer: null,
+            timeLeft: config.timeLimit,
+            score: 0,
+            hintsRemaining: config.hintCount,
+            selectedTile: null,
+            isProcessing: false,
+            isPlaying: false,
+            tiles: [],
+            gameOver: false
+        };
+
+        // 药品数据库
+        const medicationTypes = [
+            { name: '对乙酰氨基酚', safety: 'safe', icon: 'fa-pills' },
+            { name: '布洛芬', safety: 'cautious', icon: 'fa-pills' },
+            { name: '蒙脱石散', safety: 'safe', icon: 'fa-medkit' },
+            { name: '盐酸氨溴索', safety: 'safe', icon: 'fa-medkit' },
+            { name: '氯苯那敏', safety: 'cautious', icon: 'fa-medkit' },
+            { name: '伪麻黄碱', safety: 'cautious', icon: 'fa-medkit' },
+            { name: '阿司匹林', safety: 'cautious', icon: 'fa-pills' },
+            { name: '奥美拉唑', safety: 'cautious', icon: 'fa-pills' },
+            { name: '氟喹诺酮', safety: 'forbidden', icon: 'fa-ban' },
+            { name: '四环素', safety: 'forbidden', icon: 'fa-ban' },
+            { name: '氯霉素', safety: 'forbidden', icon: 'fa-ban' },
+            { name: '环孢素', safety: 'forbidden', icon: 'fa-ban' },
+            { name: '含可待因', safety: 'forbidden', icon: 'fa-ban' },
+            { name: '锂制剂', safety: 'forbidden', icon: 'fa-ban' },
+            { name: '麦角胺', safety: 'forbidden', icon: 'fa-ban' },
+            { name: '克林霉素', safety: 'cautious', icon: 'fa-medkit' },
+            { name: '苯海拉明', safety: 'cautious', icon: 'fa-medkit' },
+            { name: '葡萄糖酸钙', safety: 'safe', icon: 'fa-medkit' },
+            { name: '维生素B6', safety: 'safe', icon: 'fa-medkit' },
+            { name: '甲硝唑', safety: 'forbidden', icon: 'fa-ban' }
+        ];
+
+        // 初始化游戏
+        function initGame() {
+            // 重置游戏状态
+            gameState = {
+                timer: null,
+                timeLeft: config.timeLimit,
+                score: 0,
+                hintsRemaining: config.hintCount,
+                selectedTile: null,
+                isProcessing: false,
+                isPlaying: false,
+                tiles: [],
+                gameOver: false
+            };
+
+            // 更新UI显示
+            document.getElementById('score').textContent = '0';
+            document.getElementById('timer').textContent = formatTime(config.timeLimit);
+            document.getElementById('hintCount').textContent = config.hintCount;
+            document.getElementById('resultModal').classList.add('hidden');
+            document.getElementById('timer').classList.remove('pulse-effect', 'text-red-500');
+            document.getElementById('startOverlay').classList.remove('hidden');
+            
+            // 生成游戏板
+            generateGameBoard();
+            
+            // 显示所有药品供玩家查看
+            showAllTiles();
+        }
+
+        // 生成4x5游戏板
+        function generateGameBoard() {
+            const gameBoard = document.getElementById('gameBoard');
+            gameBoard.innerHTML = '';
+            
+            // 计算需要的药品数量 (4x5=20个方块，10对)
+            const totalTiles = config.gridSize.rows * config.gridSize.cols;
+            const tileCount = totalTiles / 2;
+            
+            // 创建药品对
+            let tilePairs = [];
+            for (let i = 0; i < tileCount; i++) {
+                const typeIndex = i % medicationTypes.length;
+                // 添加两个相同的药品
+                tilePairs.push({ 
+                    id: `tile-${i}-1`, 
+                    type: typeIndex,
+                    safety: medicationTypes[typeIndex].safety
+                });
+                tilePairs.push({ 
+                    id: `tile-${i}-2`, 
+                    type: typeIndex,
+                    safety: medicationTypes[typeIndex].safety
+                });
+            }
+            
+            // 随机排序
+            tilePairs = shuffleArray(tilePairs);
+            
+            // 保存到游戏状态
+            gameState.tiles = tilePairs;
+            
+            // 创建DOM元素
+            tilePairs.forEach((tile, index) => {
+                const tileElement = document.createElement('div');
+                tileElement.id = tile.id;
+                tileElement.dataset.type = tile.type;
+                tileElement.dataset.safety = tile.safety;
+                tileElement.dataset.index = index;
+                tileElement.classList.add('tile', 'bg-tileBack', 'rounded-lg', 'aspect-square', 
+                                      'flex', 'items-center', 'justify-center', 'cursor-pointer',
+                                      'tile-hover', 'transition-all', 'transform', 'text-white');
+                
+                // 背面图标
+                const backIcon = document.createElement('i');
+                backIcon.classList.add('fa', 'fa-capsules', 'text-primary', 'text-2xl');
+                backIcon.classList.add('back-icon');
+                
+                // 正面内容
+                const frontContent = document.createElement('div');
+                frontContent.classList.add('flex', 'flex-col', 'items-center', 'justify-center', 'p-1', 'opacity-0', 'front-content');
+                
+                const iconElement = document.createElement('i');
+                iconElement.classList.add('fa', medicationTypes[tile.type].icon, 'text-xl', 'mb-1');
+                
+                const nameElement = document.createElement('span');
+                nameElement.classList.add('text-xs', 'font-medium', 'text-center', 'whitespace-nowrap');
+                nameElement.textContent = medicationTypes[tile.type].name;
+                
+                frontContent.appendChild(iconElement);
+                frontContent.appendChild(nameElement);
+                
+                tileElement.appendChild(backIcon);
+                tileElement.appendChild(frontContent);
+                
+                // 点击事件 - 游戏开始后才响应
+                tileElement.addEventListener('click', () => {
+                    if (gameState.isPlaying && !gameState.gameOver && !gameState.isProcessing) {
+                        handleTileClick(tileElement);
+                    }
+                });
+                
+                gameBoard.appendChild(tileElement);
+            });
+        }
+
+        // 显示所有方块内容供浏览（清晰显示）
+        function showAllTiles() {
+            const tiles = document.querySelectorAll('.tile');
+            tiles.forEach(tile => {
+                const backIcon = tile.querySelector('.back-icon');
+                const frontContent = tile.querySelector('.front-content');
+                const safety = tile.dataset.safety;
+                
+                tile.classList.add('flipped');
+                tile.classList.remove('bg-tileBack');
+                tile.classList.add(`bg-${safety}`);
+                
+                backIcon.classList.add('opacity-0');
+                frontContent.classList.remove('opacity-0');
+                frontContent.classList.add('opacity-100');
+            });
+        }
+
+        // 隐藏所有方块内容，开始游戏
+        function hideAllTiles() {
+            const tiles = document.querySelectorAll('.tile');
+            tiles.forEach(tile => {
+                const backIcon = tile.querySelector('.back-icon');
+                const frontContent = tile.querySelector('.front-content');
+                
+                tile.classList.remove('flipped');
+                tile.classList.add('bg-tileBack');
+                tile.classList.remove(`bg-safe`, `bg-cautious`, `bg-forbidden`);
+                
+                backIcon.classList.remove('opacity-0');
+                frontContent.classList.remove('opacity-100');
+                frontContent.classList.add('opacity-0');
+            });
+        }
+
+        // 开始游戏
+        function startGame() {
+            // 隐藏开始按钮
+            document.getElementById('startOverlay').classList.add('hidden');
+            
+            // 标记游戏状态为进行中
+            gameState.isPlaying = true;
+            
+            // 翻转所有方块隐藏
+            hideAllTiles();
+            
+            // 开始计时
+            startGameTimer();
+        }
+
+        // 开始游戏计时器
+        function startGameTimer() {
+            gameState.timer = setInterval(() => {
+                gameState.timeLeft--;
+                document.getElementById('timer').textContent = formatTime(gameState.timeLeft);
+                
+                // 时间到，游戏结束
+                if (gameState.timeLeft <= 0) {
+                    endGame(false);
+                }
+                
+                // 最后10秒添加脉冲效果提醒
+                if (gameState.timeLeft <= 10) {
+                    document.getElementById('timer').classList.add('pulse-effect', 'text-red-500');
+                }
+            }, 1000);
+        }
+
+        // 处理方块点击
+        function handleTileClick(tile) {
+            // 已经翻开的方块不能再次点击
+            if (tile.classList.contains('flipped')) return;
+            
+            // 翻开方块
+            flipTile(tile, true);
+            
+            // 处理选择逻辑
+            if (!gameState.selectedTile) {
+                // 第一次选择
+                gameState.selectedTile = tile;
+            } else {
+                // 第二次选择
+                if (gameState.selectedTile.id === tile.id) return; // 点击同一个方块
+                
+                gameState.isProcessing = true;
+                
+                if (isMatch(gameState.selectedTile, tile)) {
+                    // 匹配成功
+                    setTimeout(() => {
+                        matchTiles(gameState.selectedTile, tile);
+                        gameState.selectedTile = null;
+                        gameState.isProcessing = false;
+                        
+                        // 检查游戏是否完成
+                        checkGameCompletion();
+                    }, 500);
+                } else {
+                    // 匹配失败
+                    setTimeout(() => {
+                        flipTile(gameState.selectedTile, false);
+                        flipTile(tile, false);
+                        gameState.selectedTile = null;
+                        gameState.isProcessing = false;
+                    }, 1000);
+                }
+            }
+        }
+
+        // 翻转方块（显示/隐藏内容）
+        function flipTile(tile, show) {
+            const backIcon = tile.querySelector('.back-icon');
+            const frontContent = tile.querySelector('.front-content');
+            const safety = tile.dataset.safety;
+            
+            if (show) {
+                tile.classList.add('flipped', 'flip');
+                tile.classList.remove('bg-tileBack');
+                tile.classList.add(`bg-${safety}`);
+                
+                backIcon.classList.add('opacity-0');
+                frontContent.classList.remove('opacity-0');
+                frontContent.classList.add('opacity-100');
+            } else {
+                tile.classList.remove('flipped', 'flip');
+                tile.classList.add('bg-tileBack');
+                tile.classList.remove(`bg-safe`, `bg-cautious`, `bg-forbidden`);
+                
+                backIcon.classList.remove('opacity-0');
+                frontContent.classList.remove('opacity-100');
+                frontContent.classList.add('opacity-0');
+            }
+        }
+
+        // 检查是否匹配
+        function isMatch(tile1, tile2) {
+            return tile1.dataset.type === tile2.dataset.type;
+        }
+
+        // 处理匹配成功的方块
+        function matchTiles(tile1, tile2) {
+            // 添加消失动画
+            tile1.classList.add('disappear', 'cursor-default');
+            tile2.classList.add('disappear', 'cursor-default');
+            
+            // 根据安全性获得不同分数
+            let points = 10;
+            if (tile1.dataset.safety === 'cautious') points = 15;
+            if (tile1.dataset.safety === 'forbidden') points = 20;
+            
+            // 增加分数
+            gameState.score += points;
+            document.getElementById('score').textContent = gameState.score;
+        }
+
+        // 格式化时间显示
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // 提示功能
+        function showHint() {
+            if (gameState.hintsRemaining <= 0 || gameState.gameOver || gameState.isProcessing || !gameState.isPlaying) return;
+            
+            // 寻找一对未匹配的方块
+            const unmatchedTiles = Array.from(document.querySelectorAll('.tile:not(.disappear):not(.flipped)'));
+            
+            // 创建已匹配类型的映射
+            const typeMap = {};
+            for (const tile of unmatchedTiles) {
+                const type = tile.dataset.type;
+                if (!typeMap[type]) {
+                    typeMap[type] = [];
+                }
+                typeMap[type].push(tile);
+            }
+            
+            // 找到第一个有配对的类型
+            let hintTiles = null;
+            for (const type in typeMap) {
+                if (typeMap[type].length >= 2) {
+                    hintTiles = typeMap[type].slice(0, 2);
+                    break;
+                }
+            }
+            
+            // 高亮提示的方块
+            if (hintTiles) {
+                hintTiles.forEach(tile => {
+                    tile.classList.add('ring-4', 'ring-primary');
+                    setTimeout(() => {
+                        tile.classList.remove('ring-4', 'ring-primary');
+                    }, 1500);
+                });
+            }
+            
+            // 减少提示次数
+            gameState.hintsRemaining--;
+            document.getElementById('hintCount').textContent = gameState.hintsRemaining;
+        }
+
+        // 检查游戏是否完成
+        function checkGameCompletion() {
+            if (gameState.score >= config.targetScore) {
+                endGame(true);
+            }
+        }
+
+        // 结束游戏
+        function endGame(isWin) {
+            gameState.gameOver = true;
+            clearInterval(gameState.timer);
+            
+            const resultTitle = document.getElementById('resultTitle');
+            const resultMessage = document.getElementById('resultMessage');
+            
+            if (isWin) {
+                resultTitle.textContent = '恭喜你！';
+                resultTitle.classList.add('text-green-500');
+                resultTitle.classList.remove('text-red-500');
+                resultMessage.textContent = `你成功完成了挑战，得分: ${gameState.score}`;
+            } else {
+                resultTitle.textContent = '时间到！';
+                resultTitle.classList.add('text-red-500');
+                resultTitle.classList.remove('text-green-500');
+                resultMessage.textContent = `你的最终得分: ${gameState.score}`;
+            }
+            
+            document.getElementById('resultModal').classList.remove('hidden');
+        }
+
+        // 打乱数组顺序
+        function shuffleArray(array) {
+            const newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        }
+
+        // 事件监听
+        document.getElementById('hintBtn').addEventListener('click', showHint);
+        document.getElementById('restartBtn').addEventListener('click', initGame);
+        document.getElementById('startBtn').addEventListener('click', startGame);
+
+        // 初始化游戏
+        window.addEventListener('load', initGame);
+    </script>
+</body>
+</html>
